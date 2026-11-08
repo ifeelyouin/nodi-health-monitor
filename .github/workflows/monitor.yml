@@ -1,0 +1,36 @@
+name: Production health monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '8,23,38,53 * * * *'
+
+permissions:
+  # The monthly heartbeat edits only this public monitoring repository.
+  contents: write
+
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: node --test monitor-health.test.mjs keep-schedule-alive.test.mjs
+      - name: Keep the public schedule active
+        run: node keep-schedule-alive.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: node monitor-health.mjs
+        if: always()
+        env:
+          MONITOR_APP_URL: https://www.nodiboard.com
+          MONITOR_SUPABASE_URL: https://okbrcfmvncdijyqzvpcz.supabase.co
